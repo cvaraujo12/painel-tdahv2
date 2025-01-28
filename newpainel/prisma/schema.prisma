@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+	provider = "prisma-client-js"
+}
+
+datasource db {
+	provider = "postgresql"
+	url      = env("DATABASE_URL")
+}
+
+model Task {
+	id          String    @id @default(uuid())
+	title       String
+	description String?
+	dueDate     DateTime?
+	status      Status    @default(PENDING)
+	priority    Priority  @default(MEDIUM)
+	category    Category  @default(PERSONAL)
+	createdAt   DateTime  @default(now())
+	updatedAt   DateTime  @updatedAt
+}
+
+model Note {
+	id        String   @id @default(uuid())
+	content   String
+	tags      String[]
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
+
+model DailyGoal {
+	id        String   @id @default(uuid())
+	title     String
+	completed Boolean  @default(false)
+	date      DateTime @default(now())
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
+
+model PomodoroSession {
+	id        String   @id @default(uuid())
+	duration  Int      @default(25) // em minutos
+	break     Int      @default(5)  // em minutos
+	completed Boolean  @default(false)
+	date      DateTime @default(now())
+	notes     String?
+}
+
+enum Status {
+	PENDING
+	IN_PROGRESS
+	COMPLETED
+	CANCELLED
+}
+
+enum Priority {
+	LOW
+	MEDIUM
+	HIGH
+	URGENT
+}
+
+enum Category {
+	PERSONAL
+	WORK
+	STUDY
+	HEALTH
+	OTHER
+}

@@ -1,0 +1,118 @@
+{
+  "assistantRules": {
+    "development": {
+      "typescript": {
+        "strict": true,
+        "noAny": true,
+        "explicitReturnTypes": true,
+        "preferInterfaces": true
+      },
+      "react": {
+        "functionalComponents": true,
+        "useHooks": true,
+        "maxComponentLines": 100,
+        "memoization": {
+          "useReactMemo": true,
+          "useCallback": true,
+          "useMemo": true
+        }
+      },
+      "nextjs": {
+        "useAppRouter": true,
+        "serverComponents": "preferred",
+        "metadata": true,
+        "imageOptimization": true
+      },
+      "state": {
+        "useZustand": true,
+        "avoidRedux": true,
+        "persistence": true
+      }
+    },
+    "tdahConsiderations": {
+      "interface": {
+        "simplicity": {
+          "maxOptionsPerView": 5,
+          "clearHierarchy": true,
+          "visualClarity": true,
+          "source": "Tannock & Moldavsky, 2020"
+        },
+        "feedback": {
+          "immediate": true,
+          "visual": true,
+          "nonDistracting": true,
+          "source": "DuPaul et al., 2017"
+        },
+        "focus": {
+          "reducedClutter": true,
+          "consistentLayout": true,
+          "priorityHighlighting": true,
+          "source": "Kooij, 2019"
+        }
+      },
+      "functionality": {
+        "timeManagement": {
+          "clearIntervals": true,
+          "adaptiveBreaks": true,
+          "visualProgress": true,
+          "source": "Prevatt & Yelland, 2015"
+        },
+        "taskOrganization": {
+          "simplePriorities": true,
+          "visualCategories": true,
+          "limitedOptions": true,
+          "source": "DuPaul et al., 2017"
+        },
+        "learning": {
+          "immediateApplication": true,
+          "clearFeedback": true,
+          "adaptiveSupport": true,
+          "source": "Sonuga-Barke, 2014"
+        }
+      },
+      "accessibility": {
+        "visual": {
+          "highContrast": true,
+          "readableText": true,
+          "colorBlindFriendly": true
+        },
+        "interaction": {
+          "keyboardNavigation": true,
+          "touchFriendly": true,
+          "errorTolerant": true
+        },
+        "cognitive": {
+          "clearInstructions": true,
+          "stepByStep": true,
+          "errorPrevention": true,
+          "source": "Kooij, 2019"
+        }
+      }
+    },
+    "style": {
+      "indentation": "tab",
+      "quotes": "single",
+      "semicolons": "avoid",
+      "maxLineLength": 80,
+      "naming": {
+        "components": "PascalCase",
+        "files": "kebab-case",
+        "variables": "camelCase",
+        "constants": "UPPERCASE"
+      }
+    }
+  },
+  "automatedChecks": {
+    "beforeEdit": [
+      "validateTypeScript",
+      "checkAccessibility",
+      "verifyTDAHGuidelines",
+      "ensureDocumentation"
+    ],
+    "afterEdit": [
+      "verifyConsistency",
+      "checkPerformance",
+      "validateA11y"
+    ]
+  }
+} 
