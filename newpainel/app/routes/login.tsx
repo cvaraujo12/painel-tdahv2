@@ -19,17 +19,27 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   try {
-    const { data: { user }, error } = await supabase.auth.signInWithPassword({
+    const { data: { session }, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
     if (error) throw error
-    if (!user) throw new Error('Usuário não encontrado')
+    if (!session) throw new Error('Sessão não criada')
 
-    return createUserSession(user.id, '/dashboard')
+    return createUserSession(
+      session.access_token,
+      session.refresh_token,
+      '/dashboard'
+    )
   } catch (error) {
     console.error('Erro no login:', error)
+    if (error instanceof Error) {
+      return json(
+        { error: error.message },
+        { status: 400 }
+      )
+    }
     return json(
       { error: 'Erro ao fazer login. Por favor, tente novamente.' },
       { status: 500 }

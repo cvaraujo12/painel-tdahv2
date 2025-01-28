@@ -1,10 +1,6 @@
 import { createCookieSessionStorage, redirect } from '@remix-run/node'
-import { supabase } from './supabase.server'
 
-const sessionSecret = process.env.SESSION_SECRET
-if (!sessionSecret) {
-  throw new Error('SESSION_SECRET must be set')
-}
+const sessionSecret = 'super-duper-s3cret'
 
 const storage = createCookieSessionStorage({
   cookie: {
@@ -18,9 +14,10 @@ const storage = createCookieSessionStorage({
   },
 })
 
-export async function createUserSession(userId: string, redirectTo: string) {
+export async function createUserSession(accessToken: string, refreshToken: string, redirectTo: string) {
   const session = await storage.getSession()
-  session.set('userId', userId)
+  session.set('accessToken', accessToken)
+  session.set('refreshToken', refreshToken)
   return redirect(redirectTo, {
     headers: {
       'Set-Cookie': await storage.commitSession(session),
@@ -30,26 +27,18 @@ export async function createUserSession(userId: string, redirectTo: string) {
 
 export async function getUserSession(request: Request) {
   const session = await storage.getSession(request.headers.get('Cookie'))
-  return session.get('userId')
+  return {
+    accessToken: session.get('accessToken'),
+    refreshToken: session.get('refreshToken'),
+  }
 }
 
 export async function requireUser(request: Request) {
-  const userId = await getUserSession(request)
-  if (!userId) {
+  const { accessToken } = await getUserSession(request)
+  if (!accessToken) {
     throw redirect('/login')
   }
-
-  const { data: user, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .single()
-
-  if (error || !user) {
-    throw redirect('/login')
-  }
-
-  return user
+  return accessToken
 }
 
 export async function logout(request: Request) {

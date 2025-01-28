@@ -1,22 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_ANON_KEY
+const supabaseUrl = 'https://emrttphdkludlvnysqnh.supabase.co'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtcnR0cGhka2x1ZGx2bnlzcW5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgwNDA1NzEsImV4cCI6MjA1MzYxNjU3MX0.UCP0zLddVqOTyEwxhZtJPuFdCq_MB2ATgG-kYWsNJMA'
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Faltam variáveis de ambiente do Supabase')
-}
-
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  },
-  db: {
-    schema: 'public'
-  },
-  global: {
-    headers: { 'x-application-name': 'painel-tdah' }
-  }
-}) 
+export const supabase = createClient(supabaseUrl, supabaseKey) 
