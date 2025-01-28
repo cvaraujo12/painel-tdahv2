@@ -48,6 +48,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request)
   
   try {
+    // Buscar contagem atual
+    const [tasksCount, notesCount, goalsCount, pomodorosCount] = await Promise.all([
+      supabase.from('tasks').select('*', { count: 'exact' }).eq('user_id', user.id),
+      supabase.from('notes').select('*', { count: 'exact' }).eq('user_id', user.id),
+      supabase.from('goals').select('*', { count: 'exact' }).eq('user_id', user.id),
+      supabase.from('pomodoro_sessions').select('*', { count: 'exact' }).eq('user_id', user.id)
+    ])
+
     // Inserir dados de teste
     const [taskInsert, noteInsert, goalInsert, pomodoroInsert] = await Promise.all([
       supabase
@@ -93,35 +101,34 @@ export async function loader({ request }: LoaderFunctionArgs) {
         .single()
     ])
 
-    // Buscar contagem de registros
-    const [tasks, notes, goals, pomodoros] = await Promise.all([
-      supabase.from('tasks').select('*', { count: 'exact' }).eq('user_id', user.id),
-      supabase.from('notes').select('*', { count: 'exact' }).eq('user_id', user.id),
-      supabase.from('goals').select('*', { count: 'exact' }).eq('user_id', user.id),
-      supabase.from('pomodoro_sessions').select('*', { count: 'exact' }).eq('user_id', user.id)
-    ])
+    // Verificar se houve erros
+    if (taskInsert.error) throw new Error(`Erro ao inserir tarefa: ${taskInsert.error.message}`)
+    if (noteInsert.error) throw new Error(`Erro ao inserir nota: ${noteInsert.error.message}`)
+    if (goalInsert.error) throw new Error(`Erro ao inserir meta: ${goalInsert.error.message}`)
+    if (pomodoroInsert.error) throw new Error(`Erro ao inserir pomodoro: ${pomodoroInsert.error.message}`)
 
     const results: TestResults = {
       tasks: {
-        count: tasks.count || 0,
+        count: tasksCount.count || 0,
         lastInserted: taskInsert.data
       },
       notes: {
-        count: notes.count || 0,
+        count: notesCount.count || 0,
         lastInserted: noteInsert.data
       },
       goals: {
-        count: goals.count || 0,
+        count: goalsCount.count || 0,
         lastInserted: goalInsert.data
       },
       pomodoros: {
-        count: pomodoros.count || 0,
+        count: pomodorosCount.count || 0,
         lastInserted: pomodoroInsert.data
       }
     }
 
     return json({ success: true, results })
   } catch (error) {
+    console.error('Erro no teste:', error)
     return json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Erro desconhecido' 
@@ -137,8 +144,9 @@ export default function TestDB() {
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Teste de Sincronização do Banco de Dados</h1>
         
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <p><strong>Erro:</strong> {data.error}</p>
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+          <strong className="font-bold">Erro!</strong>
+          <p className="block sm:inline"> {data.error}</p>
         </div>
       </div>
     )
@@ -147,11 +155,11 @@ export default function TestDB() {
   const { results } = data
 
   return (
-    <div className="p-6">
+    <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Teste de Sincronização do Banco de Dados</h1>
       
       <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
-        <p>✅ Teste concluído com sucesso!</p>
+        <p className="font-bold">✅ Teste concluído com sucesso!</p>
         <p className="text-sm mt-1">Todos os testes de inserção e consulta foram realizados com sucesso.</p>
       </div>
 
@@ -164,7 +172,7 @@ export default function TestDB() {
             </span>
           </h2>
           <div className="bg-gray-50 rounded p-4">
-            <pre className="text-sm overflow-auto">
+            <pre className="text-sm overflow-auto whitespace-pre-wrap">
               {JSON.stringify(results.tasks.lastInserted, null, 2)}
             </pre>
           </div>
@@ -178,7 +186,7 @@ export default function TestDB() {
             </span>
           </h2>
           <div className="bg-gray-50 rounded p-4">
-            <pre className="text-sm overflow-auto">
+            <pre className="text-sm overflow-auto whitespace-pre-wrap">
               {JSON.stringify(results.notes.lastInserted, null, 2)}
             </pre>
           </div>
@@ -192,7 +200,7 @@ export default function TestDB() {
             </span>
           </h2>
           <div className="bg-gray-50 rounded p-4">
-            <pre className="text-sm overflow-auto">
+            <pre className="text-sm overflow-auto whitespace-pre-wrap">
               {JSON.stringify(results.goals.lastInserted, null, 2)}
             </pre>
           </div>
@@ -206,7 +214,7 @@ export default function TestDB() {
             </span>
           </h2>
           <div className="bg-gray-50 rounded p-4">
-            <pre className="text-sm overflow-auto">
+            <pre className="text-sm overflow-auto whitespace-pre-wrap">
               {JSON.stringify(results.pomodoros.lastInserted, null, 2)}
             </pre>
           </div>

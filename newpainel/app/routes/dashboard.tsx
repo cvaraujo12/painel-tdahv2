@@ -1,8 +1,9 @@
-import { Outlet } from '@remix-run/react'
 import { json, type LoaderFunctionArgs } from '@remix-run/node'
+import { Outlet, useLoaderData } from '@remix-run/react'
 import { requireUser } from '~/utils/session.server'
-import Sidebar from '~/components/sidebar'
-import DashboardLayout from '~/components/dashboard-layout'
+import { useEffect } from 'react'
+import { useAppStore } from '~/store'
+import { Sidebar } from '~/components/sidebar'
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request)
@@ -10,14 +11,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function Dashboard() {
+  const { user } = useLoaderData<typeof loader>()
+  const fetchAllData = useAppStore(state => state.fetchAllData)
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchAllData()
+    }
+  }, [user?.id, fetchAllData])
+
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       <Sidebar />
-      <DashboardLayout>
-        <main className="flex-1 p-6">
+      
+      <main className="lg:pl-64 min-h-screen">
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <Outlet />
-        </main>
-      </DashboardLayout>
+        </div>
+      </main>
     </div>
   )
 } 

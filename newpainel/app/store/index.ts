@@ -1,348 +1,351 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase } from '~/utils/supabase.client'
-
-interface Task {
-  id: string
-  title: string
-  status: 'pending' | 'completed'
-  priority: 'low' | 'medium' | 'high'
-  user_id: string
-  created_at: string
-}
-
-interface Note {
-  id: string
-  content: string
-  user_id: string
-  created_at: string
-}
-
-interface Goal {
-  id: string
-  title: string
-  description: string
-  deadline: string
-  completed: boolean
-  user_id: string
-  created_at: string
-}
-
-interface PomodoroSession {
-  id: string
-  duration: number
-  type: 'focus' | 'break'
-  user_id: string
-  created_at: string
-}
+import type { Task, Note, Goal, PomodoroSession } from '~/types'
 
 interface AppState {
+  // Tasks
   tasks: Task[]
+  isLoadingTasks: boolean
+  errorTasks: string | null
+  addTask: (task: Task) => Promise<void>
+  updateTask: (id: string, task: Partial<Task>) => Promise<void>
+  deleteTask: (id: string) => Promise<void>
+  toggleTask: (id: string) => Promise<void>
+  
+  // Notes
   notes: Note[]
+  isLoadingNotes: boolean
+  errorNotes: string | null
+  addNote: (note: Note) => Promise<void>
+  updateNote: (id: string, note: Partial<Note>) => Promise<void>
+  deleteNote: (id: string) => Promise<void>
+  
+  // Goals
   goals: Goal[]
+  isLoadingGoals: boolean
+  errorGoals: string | null
+  addGoal: (goal: Goal) => Promise<void>
+  updateGoal: (id: string, goal: Partial<Goal>) => Promise<void>
+  deleteGoal: (id: string) => Promise<void>
+  toggleGoal: (id: string) => Promise<void>
+  
+  // Pomodoro
   pomodoros: PomodoroSession[]
-  isLoading: boolean
-  error: string | null
+  isLoadingPomodoros: boolean
+  errorPomodoros: string | null
+  addPomodoro: (pomodoro: PomodoroSession) => Promise<void>
   
-  // Ações
-  fetchAllData: (userId: string) => Promise<void>
-  addTask: (userId: string, task: Partial<Task>) => Promise<void>
-  updateTask: (userId: string, taskId: string, updates: Partial<Task>) => Promise<void>
-  deleteTask: (userId: string, taskId: string) => Promise<void>
-  
-  addNote: (userId: string, note: Partial<Note>) => Promise<void>
-  updateNote: (userId: string, noteId: string, updates: Partial<Note>) => Promise<void>
-  deleteNote: (userId: string, noteId: string) => Promise<void>
-  
-  addGoal: (userId: string, goal: Partial<Goal>) => Promise<void>
-  updateGoal: (userId: string, goalId: string, updates: Partial<Goal>) => Promise<void>
-  deleteGoal: (userId: string, goalId: string) => Promise<void>
-  
-  addPomodoro: (userId: string, pomodoro: Partial<PomodoroSession>) => Promise<void>
-  updatePomodoro: (userId: string, pomodoroId: string, updates: Partial<PomodoroSession>) => Promise<void>
+  // Global
+  fetchAllData: () => Promise<void>
 }
 
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
+      // Tasks
       tasks: [],
-      notes: [],
-      goals: [],
-      pomodoros: [],
-      isLoading: false,
-      error: null,
-
-      fetchAllData: async (userId: string) => {
+      isLoadingTasks: false,
+      errorTasks: null,
+      addTask: async (task) => {
         try {
-          set({ isLoading: true, error: null })
+          set({ isLoadingTasks: true, errorTasks: null })
+          const { data, error } = await supabase
+            .from('tasks')
+            .insert([task])
+            .select()
+            .single()
+          
+          if (error) throw error
+          
+          set(state => ({
+            tasks: [data, ...state.tasks],
+            isLoadingTasks: false
+          }))
+        } catch (error) {
+          set({ 
+            errorTasks: error instanceof Error ? error.message : 'Erro ao adicionar tarefa',
+            isLoadingTasks: false 
+          })
+        }
+      },
+      updateTask: async (id, task) => {
+        try {
+          set({ isLoadingTasks: true, errorTasks: null })
+          const { data, error } = await supabase
+            .from('tasks')
+            .update(task)
+            .eq('id', id)
+            .select()
+            .single()
+          
+          if (error) throw error
+          
+          set(state => ({
+            tasks: state.tasks.map(t => t.id === id ? { ...t, ...data } : t),
+            isLoadingTasks: false
+          }))
+        } catch (error) {
+          set({ 
+            errorTasks: error instanceof Error ? error.message : 'Erro ao atualizar tarefa',
+            isLoadingTasks: false 
+          })
+        }
+      },
+      deleteTask: async (id) => {
+        try {
+          set({ isLoadingTasks: true, errorTasks: null })
+          const { error } = await supabase
+            .from('tasks')
+            .delete()
+            .eq('id', id)
+          
+          if (error) throw error
+          
+          set(state => ({
+            tasks: state.tasks.filter(t => t.id !== id),
+            isLoadingTasks: false
+          }))
+        } catch (error) {
+          set({ 
+            errorTasks: error instanceof Error ? error.message : 'Erro ao excluir tarefa',
+            isLoadingTasks: false 
+          })
+        }
+      },
+      toggleTask: async (id) => {
+        const task = get().tasks.find(t => t.id === id)
+        if (!task) return
+        
+        await get().updateTask(id, {
+          status: task.status === 'completed' ? 'pending' : 'completed'
+        })
+      },
+      
+      // Notes
+      notes: [],
+      isLoadingNotes: false,
+      errorNotes: null,
+      addNote: async (note) => {
+        try {
+          set({ isLoadingNotes: true, errorNotes: null })
+          const { data, error } = await supabase
+            .from('notes')
+            .insert([note])
+            .select()
+            .single()
+          
+          if (error) throw error
+          
+          set(state => ({
+            notes: [data, ...state.notes],
+            isLoadingNotes: false
+          }))
+        } catch (error) {
+          set({ 
+            errorNotes: error instanceof Error ? error.message : 'Erro ao adicionar nota',
+            isLoadingNotes: false 
+          })
+        }
+      },
+      updateNote: async (id, note) => {
+        try {
+          set({ isLoadingNotes: true, errorNotes: null })
+          const { data, error } = await supabase
+            .from('notes')
+            .update(note)
+            .eq('id', id)
+            .select()
+            .single()
+          
+          if (error) throw error
+          
+          set(state => ({
+            notes: state.notes.map(n => n.id === id ? { ...n, ...data } : n),
+            isLoadingNotes: false
+          }))
+        } catch (error) {
+          set({ 
+            errorNotes: error instanceof Error ? error.message : 'Erro ao atualizar nota',
+            isLoadingNotes: false 
+          })
+        }
+      },
+      deleteNote: async (id) => {
+        try {
+          set({ isLoadingNotes: true, errorNotes: null })
+          const { error } = await supabase
+            .from('notes')
+            .delete()
+            .eq('id', id)
+          
+          if (error) throw error
+          
+          set(state => ({
+            notes: state.notes.filter(n => n.id !== id),
+            isLoadingNotes: false
+          }))
+        } catch (error) {
+          set({ 
+            errorNotes: error instanceof Error ? error.message : 'Erro ao excluir nota',
+            isLoadingNotes: false 
+          })
+        }
+      },
+      
+      // Goals
+      goals: [],
+      isLoadingGoals: false,
+      errorGoals: null,
+      addGoal: async (goal) => {
+        try {
+          set({ isLoadingGoals: true, errorGoals: null })
+          const { data, error } = await supabase
+            .from('goals')
+            .insert([goal])
+            .select()
+            .single()
+          
+          if (error) throw error
+          
+          set(state => ({
+            goals: [data, ...state.goals],
+            isLoadingGoals: false
+          }))
+        } catch (error) {
+          set({ 
+            errorGoals: error instanceof Error ? error.message : 'Erro ao adicionar meta',
+            isLoadingGoals: false 
+          })
+        }
+      },
+      updateGoal: async (id, goal) => {
+        try {
+          set({ isLoadingGoals: true, errorGoals: null })
+          const { data, error } = await supabase
+            .from('goals')
+            .update(goal)
+            .eq('id', id)
+            .select()
+            .single()
+          
+          if (error) throw error
+          
+          set(state => ({
+            goals: state.goals.map(g => g.id === id ? { ...g, ...data } : g),
+            isLoadingGoals: false
+          }))
+        } catch (error) {
+          set({ 
+            errorGoals: error instanceof Error ? error.message : 'Erro ao atualizar meta',
+            isLoadingGoals: false 
+          })
+        }
+      },
+      deleteGoal: async (id) => {
+        try {
+          set({ isLoadingGoals: true, errorGoals: null })
+          const { error } = await supabase
+            .from('goals')
+            .delete()
+            .eq('id', id)
+          
+          if (error) throw error
+          
+          set(state => ({
+            goals: state.goals.filter(g => g.id !== id),
+            isLoadingGoals: false
+          }))
+        } catch (error) {
+          set({ 
+            errorGoals: error instanceof Error ? error.message : 'Erro ao excluir meta',
+            isLoadingGoals: false 
+          })
+        }
+      },
+      toggleGoal: async (id) => {
+        const goal = get().goals.find(g => g.id === id)
+        if (!goal) return
+        
+        await get().updateGoal(id, {
+          completed: !goal.completed
+        })
+      },
+      
+      // Pomodoro
+      pomodoros: [],
+      isLoadingPomodoros: false,
+      errorPomodoros: null,
+      addPomodoro: async (pomodoro) => {
+        try {
+          set({ isLoadingPomodoros: true, errorPomodoros: null })
+          const { data, error } = await supabase
+            .from('pomodoro_sessions')
+            .insert([pomodoro])
+            .select()
+            .single()
+          
+          if (error) throw error
+          
+          set(state => ({
+            pomodoros: [data, ...state.pomodoros],
+            isLoadingPomodoros: false
+          }))
+        } catch (error) {
+          set({ 
+            errorPomodoros: error instanceof Error ? error.message : 'Erro ao adicionar pomodoro',
+            isLoadingPomodoros: false 
+          })
+        }
+      },
+      
+      // Global
+      fetchAllData: async () => {
+        try {
+          const user = supabase.auth.getUser()
+          if (!user) return
           
           const [tasks, notes, goals, pomodoros] = await Promise.all([
-            supabase.from('tasks').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-            supabase.from('notes').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-            supabase.from('goals').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-            supabase.from('pomodoro_sessions').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+            supabase
+              .from('tasks')
+              .select('*')
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('notes')
+              .select('*')
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('goals')
+              .select('*')
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('pomodoro_sessions')
+              .select('*')
+              .order('created_at', { ascending: false })
           ])
-
-          if (tasks.error) throw tasks.error
-          if (notes.error) throw notes.error
-          if (goals.error) throw goals.error
-          if (pomodoros.error) throw pomodoros.error
-
+          
           set({
             tasks: tasks.data || [],
             notes: notes.data || [],
             goals: goals.data || [],
             pomodoros: pomodoros.data || [],
-            isLoading: false
+            isLoadingTasks: false,
+            isLoadingNotes: false,
+            isLoadingGoals: false,
+            isLoadingPomodoros: false,
+            errorTasks: null,
+            errorNotes: null,
+            errorGoals: null,
+            errorPomodoros: null
           })
         } catch (error) {
-          set({ error: error.message, isLoading: false })
-          console.error('Erro ao buscar dados:', error)
-        }
-      },
-
-      addTask: async (userId: string, task: Partial<Task>) => {
-        try {
-          set({ isLoading: true, error: null })
-          const { data, error } = await supabase
-            .from('tasks')
-            .insert([{ ...task, user_id: userId }])
-            .select()
-            .single()
-
-          if (error) throw error
-
-          set((state) => ({
-            tasks: [data, ...state.tasks],
-            isLoading: false
-          }))
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-          console.error('Erro ao adicionar tarefa:', error)
-        }
-      },
-
-      updateTask: async (userId: string, taskId: string, updates: Partial<Task>) => {
-        try {
-          set({ isLoading: true, error: null })
-          const { data, error } = await supabase
-            .from('tasks')
-            .update(updates)
-            .eq('id', taskId)
-            .eq('user_id', userId)
-            .select()
-            .single()
-
-          if (error) throw error
-
-          set((state) => ({
-            tasks: state.tasks.map((t) => (t.id === taskId ? data : t)),
-            isLoading: false
-          }))
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-          console.error('Erro ao atualizar tarefa:', error)
-        }
-      },
-
-      deleteTask: async (userId: string, taskId: string) => {
-        try {
-          set({ isLoading: true, error: null })
-          const { error } = await supabase
-            .from('tasks')
-            .delete()
-            .eq('id', taskId)
-            .eq('user_id', userId)
-
-          if (error) throw error
-
-          set((state) => ({
-            tasks: state.tasks.filter((t) => t.id !== taskId),
-            isLoading: false
-          }))
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-          console.error('Erro ao deletar tarefa:', error)
-        }
-      },
-
-      // Funções para Notas
-      addNote: async (userId: string, note: Partial<Note>) => {
-        try {
-          set({ isLoading: true, error: null })
-          const { data, error } = await supabase
-            .from('notes')
-            .insert([{ ...note, user_id: userId }])
-            .select()
-            .single()
-
-          if (error) throw error
-
-          set((state) => ({
-            notes: [data, ...state.notes],
-            isLoading: false
-          }))
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-        }
-      },
-
-      updateNote: async (userId: string, noteId: string, updates: Partial<Note>) => {
-        try {
-          set({ isLoading: true, error: null })
-          const { data, error } = await supabase
-            .from('notes')
-            .update(updates)
-            .eq('id', noteId)
-            .eq('user_id', userId)
-            .select()
-            .single()
-
-          if (error) throw error
-
-          set((state) => ({
-            notes: state.notes.map((n) => (n.id === noteId ? data : n)),
-            isLoading: false
-          }))
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-        }
-      },
-
-      deleteNote: async (userId: string, noteId: string) => {
-        try {
-          set({ isLoading: true, error: null })
-          const { error } = await supabase
-            .from('notes')
-            .delete()
-            .eq('id', noteId)
-            .eq('user_id', userId)
-
-          if (error) throw error
-
-          set((state) => ({
-            notes: state.notes.filter((n) => n.id !== noteId),
-            isLoading: false
-          }))
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-        }
-      },
-
-      // Funções para Metas
-      addGoal: async (userId: string, goal: Partial<Goal>) => {
-        try {
-          set({ isLoading: true, error: null })
-          const { data, error } = await supabase
-            .from('goals')
-            .insert([{ ...goal, user_id: userId }])
-            .select()
-            .single()
-
-          if (error) throw error
-
-          set((state) => ({
-            goals: [data, ...state.goals],
-            isLoading: false
-          }))
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-        }
-      },
-
-      updateGoal: async (userId: string, goalId: string, updates: Partial<Goal>) => {
-        try {
-          set({ isLoading: true, error: null })
-          const { data, error } = await supabase
-            .from('goals')
-            .update(updates)
-            .eq('id', goalId)
-            .eq('user_id', userId)
-            .select()
-            .single()
-
-          if (error) throw error
-
-          set((state) => ({
-            goals: state.goals.map((g) => (g.id === goalId ? data : g)),
-            isLoading: false
-          }))
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-        }
-      },
-
-      deleteGoal: async (userId: string, goalId: string) => {
-        try {
-          set({ isLoading: true, error: null })
-          const { error } = await supabase
-            .from('goals')
-            .delete()
-            .eq('id', goalId)
-            .eq('user_id', userId)
-
-          if (error) throw error
-
-          set((state) => ({
-            goals: state.goals.filter((g) => g.id !== goalId),
-            isLoading: false
-          }))
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-        }
-      },
-
-      // Funções para Pomodoro
-      addPomodoro: async (userId: string, pomodoro: Partial<PomodoroSession>) => {
-        try {
-          set({ isLoading: true, error: null })
-          const { data, error } = await supabase
-            .from('pomodoro_sessions')
-            .insert([{ ...pomodoro, user_id: userId }])
-            .select()
-            .single()
-
-          if (error) throw error
-
-          set((state) => ({
-            pomodoros: [data, ...state.pomodoros],
-            isLoading: false
-          }))
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-        }
-      },
-
-      updatePomodoro: async (userId: string, pomodoroId: string, updates: Partial<PomodoroSession>) => {
-        try {
-          set({ isLoading: true, error: null })
-          const { data, error } = await supabase
-            .from('pomodoro_sessions')
-            .update(updates)
-            .eq('id', pomodoroId)
-            .eq('user_id', userId)
-            .select()
-            .single()
-
-          if (error) throw error
-
-          set((state) => ({
-            pomodoros: state.pomodoros.map((p) => (p.id === pomodoroId ? data : p)),
-            isLoading: false
-          }))
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
+          console.error('Erro ao carregar dados:', error)
         }
       }
     }),
     {
       name: 'app-store',
-      partialize: (state) => ({
-        tasks: state.tasks,
-        notes: state.notes,
-        goals: state.goals,
-        pomodoros: state.pomodoros
-      })
+      skipHydration: true
     }
   )
 ) 
