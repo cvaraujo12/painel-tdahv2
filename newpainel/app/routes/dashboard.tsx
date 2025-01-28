@@ -1,16 +1,23 @@
 import { Outlet } from '@remix-run/react'
+import { json, type LoaderFunctionArgs } from '@remix-run/node'
+import { requireUser } from '~/utils/session.server'
 import Sidebar from '~/components/sidebar'
+import DashboardLayout from '~/components/dashboard-layout'
 
-export default function DashboardLayout() {
+export async function loader({ request }: LoaderFunctionArgs) {
+  const user = await requireUser(request)
+  return json({ user })
+}
+
+export default function Dashboard() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      
-      <main className="pt-16 min-h-screen">
-        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <DashboardLayout>
+        <main className="flex-1 p-6">
           <Outlet />
-        </div>
-      </main>
+        </main>
+      </DashboardLayout>
     </div>
   )
 } 

@@ -12,90 +12,92 @@ export interface Database {
       tasks: {
         Row: {
           id: string
-          title: string
-          completed: boolean
-          priority: 'low' | 'medium' | 'high'
           user_id: string
+          title: string
+          description?: string
+          status: 'pending' | 'completed'
+          priority: 'low' | 'medium' | 'high'
+          due_date?: string
           created_at: string
           updated_at: string
         }
         Insert: {
-          title: string
-          completed?: boolean
-          priority: 'low' | 'medium' | 'high'
           user_id: string
+          title: string
+          description?: string
+          status?: 'pending' | 'completed'
+          priority?: 'low' | 'medium' | 'high'
+          due_date?: string
         }
         Update: {
           title?: string
-          completed?: boolean
+          description?: string
+          status?: 'pending' | 'completed'
           priority?: 'low' | 'medium' | 'high'
+          due_date?: string
+          updated_at?: string
         }
       }
       notes: {
         Row: {
           id: string
-          content: string
-          color: 'yellow' | 'blue' | 'green' | 'purple' | 'red'
-          is_important: boolean
           user_id: string
+          content: string
           created_at: string
           updated_at: string
         }
         Insert: {
-          content: string
-          color: 'yellow' | 'blue' | 'green' | 'purple' | 'red'
-          is_important?: boolean
           user_id: string
+          content: string
         }
         Update: {
           content?: string
-          color?: 'yellow' | 'blue' | 'green' | 'purple' | 'red'
-          is_important?: boolean
+          updated_at?: string
         }
       }
       goals: {
         Row: {
           id: string
-          title: string
-          completed: boolean
-          progress: number
-          period: 'daily' | 'weekly' | 'monthly'
-          category: 'saude' | 'trabalho' | 'pessoal' | 'aprendizado'
           user_id: string
+          title: string
+          description?: string
+          status: 'in_progress' | 'completed'
+          target_date?: string
           created_at: string
           updated_at: string
         }
         Insert: {
-          title: string
-          completed?: boolean
-          progress?: number
-          period: 'daily' | 'weekly' | 'monthly'
-          category: 'saude' | 'trabalho' | 'pessoal' | 'aprendizado'
           user_id: string
+          title: string
+          description?: string
+          status?: 'in_progress' | 'completed'
+          target_date?: string
         }
         Update: {
           title?: string
-          completed?: boolean
-          progress?: number
-          period?: 'daily' | 'weekly' | 'monthly'
-          category?: 'saude' | 'trabalho' | 'pessoal' | 'aprendizado'
+          description?: string
+          status?: 'in_progress' | 'completed'
+          target_date?: string
+          updated_at?: string
         }
       }
       pomodoro_sessions: {
         Row: {
           id: string
-          duration: number
-          completed: boolean
           user_id: string
+          start_time: string
+          end_time?: string
+          type: 'focus' | 'break'
           created_at: string
         }
         Insert: {
-          duration: number
-          completed?: boolean
           user_id: string
+          start_time: string
+          type: 'focus' | 'break'
+          end_time?: string
         }
         Update: {
-          completed?: boolean
+          end_time?: string
         }
       }
     }

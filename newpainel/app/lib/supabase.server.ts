@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 import invariant from 'tiny-invariant'
+import type { Database } from '~/types/database'
 
 // Verificação das variáveis de ambiente
 invariant(process.env.SUPABASE_URL, 'SUPABASE_URL deve estar definida')
 invariant(process.env.SUPABASE_ANON_KEY, 'SUPABASE_ANON_KEY deve estar definida')
 
-export const supabase = createClient(
+export const supabase = createClient<Database>(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY,
   {
@@ -18,42 +19,18 @@ export const supabase = createClient(
 )
 
 // Tipos para as tabelas do banco de dados
-export interface Task {
-  id: string
-  user_id: string
-  title: string
-  description?: string
-  status: 'pending' | 'completed'
-  priority: 'low' | 'medium' | 'high'
-  due_date?: string
-  created_at: string
-  updated_at: string
-}
+export type Task = Database['public']['Tables']['tasks']['Row']
+export type TaskInsert = Database['public']['Tables']['tasks']['Insert']
+export type TaskUpdate = Database['public']['Tables']['tasks']['Update']
 
-export interface Note {
-  id: string
-  user_id: string
-  content: string
-  created_at: string
-  updated_at: string
-}
+export type Note = Database['public']['Tables']['notes']['Row']
+export type NoteInsert = Database['public']['Tables']['notes']['Insert']
+export type NoteUpdate = Database['public']['Tables']['notes']['Update']
 
-export interface Goal {
-  id: string
-  user_id: string
-  title: string
-  description?: string
-  status: 'in_progress' | 'completed'
-  target_date?: string
-  created_at: string
-  updated_at: string
-}
+export type Goal = Database['public']['Tables']['goals']['Row']
+export type GoalInsert = Database['public']['Tables']['goals']['Insert']
+export type GoalUpdate = Database['public']['Tables']['goals']['Update']
 
-export interface PomodoroSession {
-  id: string
-  user_id: string
-  start_time: string
-  end_time?: string
-  type: 'focus' | 'break'
-  created_at: string
-} 
+export type PomodoroSession = Database['public']['Tables']['pomodoro_sessions']['Row']
+export type PomodoroSessionInsert = Database['public']['Tables']['pomodoro_sessions']['Insert']
+export type PomodoroSessionUpdate = Database['public']['Tables']['pomodoro_sessions']['Update'] 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useStore } from '~/store'
+import { useAppStore } from '~/store'
 import { Goal } from '~/types'
 
 export default function GoalList() {
@@ -20,7 +20,7 @@ export default function GoalList() {
     isLoading,
     error,
     syncWithSupabase 
-  } = useStore()
+  } = useAppStore()
 
   useEffect(() => {
     syncWithSupabase()

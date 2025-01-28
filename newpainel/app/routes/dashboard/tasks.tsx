@@ -1,48 +1,119 @@
 import { json, type LoaderFunctionArgs } from '@remix-run/node'
-import { useLoaderData } from '@remix-run/react'
+import { useLoaderData, useSubmit } from '@remix-run/react'
 import { requireUser } from '~/utils/session.server'
-import { useAppStore } from '~/store'
+import { supabase } from '~/utils/supabase.server'
 import { useState } from 'react'
-import { FiPlus, FiTrash2, FiEdit2, FiCheck } from 'react-icons/fi'
+import { FiPlus, FiTrash2, FiCheck } from 'react-icons/fi'
+
+interface Task {
+  id: string
+  title: string
+  status: 'pending' | 'completed'
+  priority: 'low' | 'medium' | 'high'
+  user_id: string
+  created_at: string
+}
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request)
-  return json({ user })
+  
+  const { data: tasks, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw new Error('Erro ao carregar tarefas')
+  }
+
+  return json({ user, tasks })
+}
+
+export async function action({ request }: LoaderFunctionArgs) {
+  const user = await requireUser(request)
+  const formData = await request.formData()
+  const action = formData.get('_action')
+
+  if (action === 'create') {
+    const title = formData.get('title')
+    const priority = formData.get('priority')
+
+    const { error } = await supabase
+      .from('tasks')
+      .insert([{
+        user_id: user.id,
+        title,
+        priority,
+        status: 'pending'
+      }])
+
+    if (error) throw error
+  }
+
+  if (action === 'toggle') {
+    const id = formData.get('id')
+    const status = formData.get('status') === 'pending' ? 'completed' : 'pending'
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({ status })
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) throw error
+  }
+
+  if (action === 'delete') {
+    const id = formData.get('id')
+
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) throw error
+  }
+
+  return json({ success: true })
 }
 
 export default function Tasks() {
-  const { user } = useLoaderData<typeof loader>()
+  const { tasks } = useLoaderData<typeof loader>()
+  const submit = useSubmit()
   const [newTask, setNewTask] = useState('')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
-  
-  const tasks = useAppStore((state) => state.tasks)
-  const addTask = useAppStore((state) => state.addTask)
-  const updateTask = useAppStore((state) => state.updateTask)
-  const deleteTask = useAppStore((state) => state.deleteTask)
-  const isLoading = useAppStore((state) => state.isLoading)
 
-  const handleAddTask = async (e: React.FormEvent) => {
+  const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault()
     if (!newTask.trim()) return
 
-    await addTask(user.id, {
-      title: newTask,
-      status: 'pending',
-      priority
-    })
+    const formData = new FormData()
+    formData.append('_action', 'create')
+    formData.append('title', newTask)
+    formData.append('priority', priority)
 
+    submit(formData, { method: 'post' })
     setNewTask('')
     setPriority('medium')
   }
 
-  const handleToggleTask = async (taskId: string, currentStatus: string) => {
-    await updateTask(user.id, taskId, {
-      status: currentStatus === 'pending' ? 'completed' : 'pending'
-    })
+  const handleToggleTask = (task: Task) => {
+    const formData = new FormData()
+    formData.append('_action', 'toggle')
+    formData.append('id', task.id)
+    formData.append('status', task.status)
+
+    submit(formData, { method: 'post' })
   }
 
-  const handleDeleteTask = async (taskId: string) => {
-    await deleteTask(user.id, taskId)
+  const handleDeleteTask = (id: string) => {
+    const formData = new FormData()
+    formData.append('_action', 'delete')
+    formData.append('id', id)
+
+    submit(formData, { method: 'post' })
   }
 
   const priorityColors = {
@@ -77,8 +148,7 @@ export default function Tasks() {
 
           <button
             type="submit"
-            disabled={isLoading}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <FiPlus className="w-5 h-5" />
           </button>
@@ -86,14 +156,14 @@ export default function Tasks() {
       </form>
 
       <div className="space-y-4">
-        {tasks.map((task) => (
+        {tasks.map((task: Task) => (
           <div
             key={task.id}
             className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border"
           >
             <div className="flex items-center gap-4">
               <button
-                onClick={() => handleToggleTask(task.id, task.status)}
+                onClick={() => handleToggleTask(task)}
                 className={`w-6 h-6 rounded-full border-2 flex items-center justify-center
                   ${task.status === 'completed' 
                     ? 'border-green-500 bg-green-500 text-white' 
@@ -124,7 +194,7 @@ export default function Tasks() {
           </div>
         ))}
 
-        {tasks.length === 0 && !isLoading && (
+        {tasks.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             Nenhuma tarefa encontrada
           </div>

@@ -30,7 +30,7 @@ interface Store {
 const STORAGE_KEY = 'tdah-store'
 const VERSION = '1.0.0'
 
-export const useStore = create<Store>()(
+export const useAppStore = create<Store>()(
   persist(
     (set, get) => ({
       tasks: [],

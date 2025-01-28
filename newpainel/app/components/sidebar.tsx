@@ -1,9 +1,19 @@
 import { useState } from 'react'
-import { Link, Form } from '@remix-run/react'
-import { FiMenu, FiX, FiHome, FiCheckSquare, FiFileText, FiTarget, FiClock, FiLogOut } from 'react-icons/fi'
+import { Link, Form, useLocation } from '@remix-run/react'
+import { FiMenu, FiX, FiHome, FiCheckSquare, FiFileText, FiTarget, FiClock, FiLogOut, FiDatabase } from 'react-icons/fi'
+
+const menuItems = [
+  { to: '/dashboard', label: 'Dashboard', icon: FiHome },
+  { to: '/dashboard/tasks', label: 'Tarefas', icon: FiCheckSquare },
+  { to: '/dashboard/notes', label: 'Notas', icon: FiFileText },
+  { to: '/dashboard/goals', label: 'Metas', icon: FiTarget },
+  { to: '/dashboard/pomodoro', label: 'Pomodoro', icon: FiClock },
+  { to: '/dashboard/test-db', label: 'Teste DB', icon: FiDatabase }
+]
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
+  const location = useLocation()
 
   const toggleSidebar = () => setIsOpen(!isOpen)
 
@@ -29,50 +39,24 @@ export default function Sidebar() {
         <div className="flex flex-col h-full overflow-hidden">
           <div className="flex-1 p-4 overflow-y-auto">
             <nav className="space-y-2">
-              <Link 
-                to="/dashboard"
-                className="flex items-center gap-2 p-3 rounded-md hover:bg-gray-100 text-gray-700"
-                onClick={() => setIsOpen(false)}
-              >
-                <FiHome size={20} />
-                <span>Dashboard</span>
-              </Link>
-
-              <Link 
-                to="/dashboard/tasks"
-                className="flex items-center gap-2 p-3 rounded-md hover:bg-gray-100 text-gray-700"
-                onClick={() => setIsOpen(false)}
-              >
-                <FiCheckSquare size={20} />
-                <span>Tarefas</span>
-              </Link>
-
-              <Link 
-                to="/dashboard/notes"
-                className="flex items-center gap-2 p-3 rounded-md hover:bg-gray-100 text-gray-700"
-                onClick={() => setIsOpen(false)}
-              >
-                <FiFileText size={20} />
-                <span>Notas</span>
-              </Link>
-
-              <Link 
-                to="/dashboard/goals"
-                className="flex items-center gap-2 p-3 rounded-md hover:bg-gray-100 text-gray-700"
-                onClick={() => setIsOpen(false)}
-              >
-                <FiTarget size={20} />
-                <span>Metas</span>
-              </Link>
-
-              <Link 
-                to="/dashboard/pomodoro"
-                className="flex items-center gap-2 p-3 rounded-md hover:bg-gray-100 text-gray-700"
-                onClick={() => setIsOpen(false)}
-              >
-                <FiClock size={20} />
-                <span>Pomodoro</span>
-              </Link>
+              {menuItems.map((item) => {
+                const isActive = location.pathname === item.to
+                const Icon = item.icon
+                
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`flex items-center gap-2 p-3 rounded-md hover:bg-gray-100 text-gray-700 ${
+                      isActive ? 'bg-blue-50 text-blue-600 border-r-4 border-blue-600' : ''
+                    }`}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Icon className="w-5 h-5 mr-3" />
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
             </nav>
           </div>
 

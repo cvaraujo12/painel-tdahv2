@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useStore } from '~/store'
+import { useAppStore } from '~/store'
 import { Note } from '~/types'
 
 export default function NoteList() {
@@ -15,7 +15,7 @@ export default function NoteList() {
     isLoading,
     error,
     syncWithSupabase 
-  } = useStore()
+  } = useAppStore()
 
   useEffect(() => {
     syncWithSupabase()

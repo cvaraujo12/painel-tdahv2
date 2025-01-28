@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useStore } from '~/store'
+import { useAppStore } from '~/store'
 import { Task } from '~/types'
 
 export default function TaskList() {
@@ -19,7 +19,7 @@ export default function TaskList() {
     isLoading,
     error,
     syncWithSupabase 
-  } = useStore()
+  } = useAppStore()
 
   useEffect(() => {
     syncWithSupabase()
