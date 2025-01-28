@@ -1,87 +1,77 @@
 import { createCookieSessionStorage, redirect } from '@remix-run/node'
 import { supabase } from './supabase.server'
 
-if (!process.env.SESSION_SECRET) {
+const sessionSecret = process.env.SESSION_SECRET
+if (!sessionSecret) {
   throw new Error('SESSION_SECRET must be set')
 }
 
-export const sessionStorage = createCookieSessionStorage({
+const storage = createCookieSessionStorage({
   cookie: {
-    name: 'sb',
-    httpOnly: true,
-    path: '/',
-    sameSite: 'lax',
-    secrets: [process.env.SESSION_SECRET],
+    name: 'painel_tdah_session',
     secure: process.env.NODE_ENV === 'production',
+    secrets: [sessionSecret],
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+    httpOnly: true,
   },
 })
 
-export async function createUserSession(
-  accessToken: string,
-  refreshToken: string,
-  redirectTo: string
-) {
-  const session = await sessionStorage.getSession()
-  session.set('accessToken', accessToken)
-  session.set('refreshToken', refreshToken)
-
+export async function createUserSession(userId: string, redirectTo: string) {
+  const session = await storage.getSession()
+  session.set('userId', userId)
   return redirect(redirectTo, {
     headers: {
-      'Set-Cookie': await sessionStorage.commitSession(session),
+      'Set-Cookie': await storage.commitSession(session),
     },
   })
 }
 
 export async function getUserSession(request: Request) {
-  const session = await sessionStorage.getSession(request.headers.get('Cookie'))
-  const accessToken = session.get('accessToken')
-  const refreshToken = session.get('refreshToken')
-
-  if (!accessToken || !refreshToken) return null
-
-  const { data: { user }, error } = await supabase.auth.getUser(accessToken)
-  
-  if (error || !user) {
-    // Token expirado ou inválido, tentar refresh
-    const { data: { session: newSession }, error: refreshError } = 
-      await supabase.auth.refreshSession({ refresh_token: refreshToken })
-    
-    if (refreshError || !newSession) return null
-
-    // Atualizar sessão com novos tokens
-    const cookieSession = await sessionStorage.getSession()
-    cookieSession.set('accessToken', newSession.access_token)
-    cookieSession.set('refreshToken', newSession.refresh_token)
-
-    throw redirect(request.url, {
-      headers: {
-        'Set-Cookie': await sessionStorage.commitSession(cookieSession),
-      },
-    })
-  }
-
-  return user
+  const session = await storage.getSession(request.headers.get('Cookie'))
+  return session.get('userId')
 }
 
 export async function requireUser(request: Request) {
-  const user = await getUserSession(request)
-  if (!user) {
+  const userId = await getUserSession(request)
+  if (!userId) {
     throw redirect('/login')
   }
+
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .single()
+
+  if (error || !user) {
+    throw redirect('/login')
+  }
+
   return user
 }
 
 export async function logout(request: Request) {
-  const session = await sessionStorage.getSession(request.headers.get('Cookie'))
-  const accessToken = session.get('accessToken')
-
-  if (accessToken) {
-    await supabase.auth.signOut({ accessToken })
-  }
-
+  const session = await storage.getSession(request.headers.get('Cookie'))
   return redirect('/login', {
     headers: {
-      'Set-Cookie': await sessionStorage.destroySession(session),
+      'Set-Cookie': await storage.destroySession(session),
     },
   })
+}
+
+export async function getUser(request: Request) {
+  const userId = await getUserSession(request)
+  if (!userId) return null
+
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .single()
+
+  if (error || !user) return null
+
+  return user
 } 
