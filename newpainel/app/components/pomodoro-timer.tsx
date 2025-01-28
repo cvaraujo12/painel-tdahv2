@@ -1,172 +1,274 @@
-import { useState, useEffect } from 'react'
+'use client'
 
-interface PomodoroStats {
-	sessionsCompleted: number
-	totalFocusTime: number
-	averageFocusTime: number
-	lastBreakTime: number
+import { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@/lib/supabase'
+import type { Database } from '@/types/database'
+
+type PomodoroSession = Database['public']['Tables']['pomodoro_sessions']['Row']
+
+// Tempos configuráveis (em segundos)
+const POMODORO_PRESETS = {
+  short: {
+    work: 15 * 60, // 15 minutos
+    break: 3 * 60  // 3 minutos
+  },
+  default: {
+    work: 25 * 60, // 25 minutos
+    break: 5 * 60  // 5 minutos
+  },
+  long: {
+    work: 45 * 60, // 45 minutos
+    break: 10 * 60 // 10 minutos
+  }
 }
 
-interface PomodoroTimerProps {
-	initialTime?: number
-	breakTime?: number
-	onComplete?: () => void
-}
+export default function PomodoroTimer() {
+  const [timeLeft, setTimeLeft] = useState(POMODORO_PRESETS.default.work)
+  const [isActive, setIsActive] = useState(false)
+  const [isBreak, setIsBreak] = useState(false)
+  const [sessions, setSessions] = useState<PomodoroSession[]>([])
+  const [selectedPreset, setSelectedPreset] = useState<'short' | 'default' | 'long'>('default')
+  const [showMotivation, setShowMotivation] = useState(false)
+  const supabase = createClient()
 
-export function PomodoroTimer({
-	initialTime = 25,
-	breakTime = 5,
-	onComplete
-}: PomodoroTimerProps) {
-	const [minutes, setMinutes] = useState(initialTime)
-	const [seconds, setSeconds] = useState(0)
-	const [isActive, setIsActive] = useState(false)
-	const [isBreak, setIsBreak] = useState(false)
-	const [showStartGuide, setShowStartGuide] = useState(true)
-	const [stats, setStats] = useState<PomodoroStats>({
-		sessionsCompleted: 0,
-		totalFocusTime: 0,
-		averageFocusTime: 0,
-		lastBreakTime: breakTime
-	})
+  // Formatar tempo
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
 
-	// Calcula tempo de intervalo adaptativo baseado no desempenho
-	const calculateAdaptiveBreak = (focusTime: number): number => {
-		// Baseado em evidências de Sonuga-Barke (2014)
-		const baseBreak = breakTime
-		const performanceFactor = focusTime / (initialTime * 60)
-		return Math.max(Math.round(baseBreak * performanceFactor), 3)
-	}
+  // Calcular progresso
+  const calculateProgress = () => {
+    const total = isBreak ? POMODORO_PRESETS[selectedPreset].break : POMODORO_PRESETS[selectedPreset].work
+    return ((total - timeLeft) / total) * 100
+  }
 
-	useEffect(() => {
-		let interval: NodeJS.Timeout | null = null
+  // Carregar sessões
+  const loadSessions = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pomodoro_sessions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5)
 
-		if (isActive) {
-			interval = setInterval(() => {
-				if (seconds === 0) {
-					if (minutes === 0) {
-						setIsActive(false)
-						if (!isBreak) {
-							// Atualiza estatísticas ao completar sessão de foco
-							const newStats = {
-								sessionsCompleted: stats.sessionsCompleted + 1,
-								totalFocusTime: stats.totalFocusTime + initialTime,
-								averageFocusTime:
-									(stats.totalFocusTime + initialTime) / (stats.sessionsCompleted + 1),
-								lastBreakTime: calculateAdaptiveBreak(initialTime)
-							}
-							setStats(newStats)
-							
-							if (onComplete) onComplete()
-							setIsBreak(true)
-							setMinutes(newStats.lastBreakTime)
-						} else {
-							setIsBreak(false)
-							setMinutes(initialTime)
-						}
-						setSeconds(0)
-					} else {
-						setMinutes(minutes - 1)
-						setSeconds(59)
-					}
-				} else {
-					setSeconds(seconds - 1)
-				}
-			}, 1000)
-		}
+      if (error) throw error
+      setSessions(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar sessões:', error)
+    }
+  }, [supabase])
 
-		return () => {
-			if (interval) clearInterval(interval)
-		}
-	}, [isActive, minutes, seconds, isBreak, initialTime, onComplete])
+  // Salvar sessão
+  const saveSession = async (duration: number, completed: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('pomodoro_sessions')
+        .insert([{ duration, completed }])
 
-	const toggleTimer = () => {
-		setIsActive(!isActive)
-		setShowStartGuide(false)
-	}
+      if (error) throw error
+      loadSessions()
+      
+      if (completed) {
+        setShowMotivation(true)
+        const audio = new Audio('/sounds/complete.mp3')
+        audio.play()
+        setTimeout(() => setShowMotivation(false), 3000)
+      }
+    } catch (error) {
+      console.error('Erro ao salvar sessão:', error)
+    }
+  }
 
-	const resetTimer = () => {
-		setIsActive(false)
-		setIsBreak(false)
-		setMinutes(initialTime)
-		setSeconds(0)
-	}
+  // Alternar timer
+  const toggleTimer = () => {
+    if (!isActive) {
+      const audio = new Audio('/sounds/start.mp3')
+      audio.play()
+    }
+    setIsActive(!isActive)
+  }
 
-	// Calcula progresso para feedback visual
-	const progress = isBreak
-		? ((stats.lastBreakTime * 60 - (minutes * 60 + seconds)) /
-				(stats.lastBreakTime * 60)) *
-		  100
-		: ((initialTime * 60 - (minutes * 60 + seconds)) / (initialTime * 60)) * 100
+  // Resetar timer
+  const resetTimer = () => {
+    setIsActive(false)
+    setIsBreak(false)
+    setTimeLeft(POMODORO_PRESETS[selectedPreset].work)
+  }
 
-	return (
-		<div className="rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800 border-2 border-transparent hover:border-primary-300 transition-all duration-300">
-			<div className="text-center">
-				<h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-					{isBreak ? 'Intervalo' : 'Tempo de Foco'}
-				</h2>
-				
-				{/* Guia de Início */}
-				{showStartGuide && !isActive && (
-					<div className="mb-6 p-4 bg-primary-50 dark:bg-gray-700 rounded-lg">
-						<p className="text-sm text-gray-600 dark:text-gray-300">
-							Clique em Iniciar para começar sua sessão de foco.
-							{!isBreak && ' Mantenha o foco por 25 minutos!'}
-						</p>
-					</div>
-				)}
+  // Mudar preset
+  const changePreset = (preset: 'short' | 'default' | 'long') => {
+    setSelectedPreset(preset)
+    setTimeLeft(POMODORO_PRESETS[preset].work)
+    setIsActive(false)
+    setIsBreak(false)
+  }
 
-				{/* Barra de Progresso */}
-				<div className="mt-4 h-4 w-full rounded-full bg-gray-200 dark:bg-gray-700 p-1">
-					<div
-						className={`h-2 rounded-full transition-all duration-300 ${
-							isBreak ? 'bg-green-500' : 'bg-primary-600'
-						}`}
-						style={{ width: `${progress}%` }}
-					/>
-				</div>
+  // Efeito do timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
 
-				<div className="mt-6 text-5xl font-bold text-gray-900 dark:text-white">
-					{String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-				</div>
+    if (isActive && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft(time => time - 1)
+      }, 1000)
+    } else if (timeLeft === 0) {
+      // Quando o timer chega a zero
+      if (!isBreak) {
+        // Fim do período de trabalho
+        saveSession(POMODORO_PRESETS[selectedPreset].work, true)
+        setTimeLeft(POMODORO_PRESETS[selectedPreset].break)
+        setIsBreak(true)
+      } else {
+        // Fim do intervalo
+        setTimeLeft(POMODORO_PRESETS[selectedPreset].work)
+        setIsBreak(false)
+      }
+      setIsActive(false)
+    }
 
-				<div className="mt-8 flex justify-center space-x-4">
-					<button
-						onClick={toggleTimer}
-						className={`rounded-lg px-8 py-3 text-lg font-semibold text-white transition-all duration-300 focus:outline-none focus:ring-4 ${
-							isActive
-								? 'bg-red-500 hover:bg-red-600 focus:ring-red-200'
-								: 'bg-primary-600 hover:bg-primary-700 focus:ring-primary-200'
-						}`}
-						aria-label={isActive ? 'Pausar timer' : 'Iniciar timer'}
-					>
-						{isActive ? 'Pausar' : 'Iniciar'}
-					</button>
-					<button
-						onClick={resetTimer}
-						className="rounded-lg border-2 border-gray-300 px-8 py-3 text-lg font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-						aria-label="Reiniciar timer"
-					>
-						Reiniciar
-					</button>
-				</div>
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [isActive, timeLeft, isBreak, selectedPreset])
 
-				{/* Estatísticas */}
-				<div className="mt-8 grid grid-cols-2 gap-6 text-center">
-					<div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700">
-						<p className="text-sm text-gray-600 dark:text-gray-400">Sessões Completadas</p>
-						<p className="mt-2 text-2xl font-bold text-primary-600 dark:text-primary-400">
-							{stats.sessionsCompleted}
-						</p>
-					</div>
-					<div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700">
-						<p className="text-sm text-gray-600 dark:text-gray-400">Tempo Médio de Foco</p>
-						<p className="mt-2 text-2xl font-bold text-primary-600 dark:text-primary-400">
-							{Math.round(stats.averageFocusTime)} min
-						</p>
-					</div>
-				</div>
-			</div>
-		</div>
-	)
+  // Carregar sessões iniciais
+  useEffect(() => {
+    loadSessions()
+  }, [loadSessions])
+
+  return (
+    <div className="space-y-6">
+      {showMotivation && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg animate-bounce">
+          🎉 Parabéns! Você completou uma sessão!
+        </div>
+      )}
+
+      <div className="text-center space-y-4">
+        <h3 className="text-2xl font-bold mb-2">
+          {isBreak ? '😌 Intervalo' : '🎯 Foco'}
+        </h3>
+
+        <div className="flex justify-center gap-2 mb-4">
+          <button
+            onClick={() => changePreset('short')}
+            className={`px-3 py-1 rounded ${
+              selectedPreset === 'short'
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-100 hover:bg-gray-200'
+            }`}
+          >
+            Curto (15min)
+          </button>
+          <button
+            onClick={() => changePreset('default')}
+            className={`px-3 py-1 rounded ${
+              selectedPreset === 'default'
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-100 hover:bg-gray-200'
+            }`}
+          >
+            Normal (25min)
+          </button>
+          <button
+            onClick={() => changePreset('long')}
+            className={`px-3 py-1 rounded ${
+              selectedPreset === 'long'
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-100 hover:bg-gray-200'
+            }`}
+          >
+            Longo (45min)
+          </button>
+        </div>
+
+        <div className="relative w-48 h-48 mx-auto">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-4xl font-mono">
+              {formatTime(timeLeft)}
+            </div>
+          </div>
+          <svg className="transform -rotate-90 w-48 h-48">
+            <circle
+              cx="96"
+              cy="96"
+              r="88"
+              className="stroke-current text-gray-200"
+              strokeWidth="12"
+              fill="transparent"
+            />
+            <circle
+              cx="96"
+              cy="96"
+              r="88"
+              className={`stroke-current ${
+                isBreak ? 'text-green-500' : 'text-blue-500'
+              }`}
+              strokeWidth="12"
+              fill="transparent"
+              strokeDasharray={2 * Math.PI * 88}
+              strokeDashoffset={2 * Math.PI * 88 * (1 - calculateProgress() / 100)}
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
+
+        <div className="space-x-2">
+          <button
+            onClick={toggleTimer}
+            className={`px-6 py-3 rounded-lg font-medium ${
+              isActive
+                ? 'bg-red-500 hover:bg-red-600'
+                : 'bg-green-500 hover:bg-green-600'
+            } text-white transition-colors`}
+          >
+            {isActive ? '⏸️ Pausar' : '▶️ Iniciar'}
+          </button>
+          <button
+            onClick={resetTimer}
+            className="px-6 py-3 rounded-lg bg-gray-500 hover:bg-gray-600 text-white font-medium transition-colors"
+          >
+            🔄 Resetar
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <h4 className="font-semibold mb-2">📊 Últimas sessões</h4>
+        <div className="space-y-2">
+          {sessions.map(session => (
+            <div
+              key={session.id}
+              className={`flex justify-between items-center p-3 rounded-lg ${
+                session.completed
+                  ? 'bg-green-50 border-l-4 border-green-500'
+                  : 'bg-yellow-50 border-l-4 border-yellow-500'
+              }`}
+            >
+              <span className="font-medium">
+                {Math.floor(session.duration / 60)} minutos
+              </span>
+              <span
+                className={`px-3 py-1 rounded-full text-sm ${
+                  session.completed
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}
+              >
+                {session.completed ? '✅ Completo' : '⏹️ Interrompido'}
+              </span>
+              <span className="text-sm text-gray-500">
+                {new Date(session.created_at).toLocaleDateString('pt-BR', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 } 

@@ -14,10 +14,13 @@
 
 # production
 /build
+/public/build
 
 # misc
+*.local
 .DS_Store
-*.pem
+*.env.*
+!.env.example
 
 # debug
 npm-debug.log*
@@ -33,4 +36,45 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts 
+next-env.d.ts
+
+# prisma
+/prisma/data.db
+/prisma/data.db-journal
+
+# app styles
+/app/styles/tailwind.css
+
+# cache
+.cache
+
+# api
+/api/index.js
+/api/index.js.map
+/api/_assets
+
+# IDE e editores
+.idea
+.vscode
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+logs
+*.log
+
+# Arquivos temporários
+*.swp
+*.swo
+Thumbs.db
+
+# Development
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Development
+.env
+.env.development
+.env.test
+.env.production 

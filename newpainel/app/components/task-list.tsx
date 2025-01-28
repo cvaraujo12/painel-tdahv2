@@ -1,225 +1,238 @@
-import { useState } from 'react'
+'use client'
 
-interface Task {
-	id: string
-	title: string
-	completed: boolean
-	priority: number
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase'
+import type { Database } from '@/types/database'
+
+type Task = Database['public']['Tables']['tasks']['Row']
+type Category = 'trabalho' | 'pessoal' | 'saude' | 'outros'
+
+const MAX_VISIBLE_TASKS = 5 // Limite de tarefas visíveis por vez
+const CATEGORIES: Category[] = ['trabalho', 'pessoal', 'saude', 'outros']
+
+const getCategoryColor = (category: Category) => {
+  const colors = {
+    trabalho: 'bg-blue-100 text-blue-800',
+    pessoal: 'bg-purple-100 text-purple-800',
+    saude: 'bg-green-100 text-green-800',
+    outros: 'bg-gray-100 text-gray-800'
+  }
+  return colors[category]
 }
 
-interface TaskListProps {
-	initialTasks?: Task[]
-	onTaskComplete?: (taskId: string) => void
-	onTaskAdd?: (task: Omit<Task, 'id'>) => void
-	onTaskDelete?: (taskId: string) => void
-	onTaskEdit?: (task: Task) => void
-}
+export default function TaskList() {
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [newTask, setNewTask] = useState('')
+  const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
+  const [category, setCategory] = useState<Category>('outros')
+  const [loading, setLoading] = useState(false)
+  const [showCompleted, setShowCompleted] = useState(false)
+  const supabase = createClient()
 
-export function TaskList({
-	initialTasks = [],
-	onTaskComplete,
-	onTaskAdd,
-	onTaskDelete,
-	onTaskEdit
-}: TaskListProps) {
-	const [tasks, setTasks] = useState<Task[]>(initialTasks)
-	const [newTaskTitle, setNewTaskTitle] = useState('')
-	const [editingTask, setEditingTask] = useState<Task | null>(null)
-	const [taskPriority, setTaskPriority] = useState(1)
+  // Carregar tarefas
+  const loadTasks = async () => {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .order('priority', { ascending: false })
+        .order('created_at', { ascending: false })
 
-	const handleAddTask = () => {
-		if (!newTaskTitle.trim()) return
+      if (error) throw error
+      setTasks(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar tarefas:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-		const newTask = {
-			id: crypto.randomUUID(),
-			title: newTaskTitle,
-			completed: false,
-			priority: taskPriority
-		}
+  useEffect(() => {
+    loadTasks()
+  }, [])
 
-		setTasks([...tasks, newTask])
-		setNewTaskTitle('')
-		setTaskPriority(1)
-		if (onTaskAdd) {
-			onTaskAdd({
-				title: newTask.title,
-				completed: newTask.completed,
-				priority: newTask.priority
-			})
-		}
-	}
+  // Adicionar tarefa
+  const addTask = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newTask.trim()) return
 
-	const toggleTask = (taskId: string) => {
-		setTasks(
-			tasks.map((task) =>
-				task.id === taskId
-					? { ...task, completed: !task.completed }
-					: task
-			)
-		)
-		if (onTaskComplete) onTaskComplete(taskId)
-	}
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert([{ 
+          title: newTask.trim(), 
+          priority,
+          category,
+          completed: false
+        }])
+        .select()
+        .single()
 
-	const handleDeleteTask = (taskId: string) => {
-		setTasks(tasks.filter((task) => task.id !== taskId))
-		if (onTaskDelete) onTaskDelete(taskId)
-	}
+      if (error) throw error
+      setTasks(prev => [data, ...prev])
+      setNewTask('')
+      
+      // Feedback visual de sucesso
+      const audio = new Audio('/sounds/success.mp3')
+      audio.play()
+    } catch (error) {
+      console.error('Erro ao adicionar tarefa:', error)
+    }
+  }
 
-	const handleEditTask = (task: Task) => {
-		setEditingTask(task)
-		setNewTaskTitle(task.title)
-		setTaskPriority(task.priority)
-	}
+  // Alternar status da tarefa
+  const toggleTask = async (task: Task) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ completed: !task.completed })
+        .eq('id', task.id)
 
-	const handleUpdateTask = () => {
-		if (!editingTask || !newTaskTitle.trim()) return
+      if (error) throw error
+      
+      setTasks(prev =>
+        prev.map(t =>
+          t.id === task.id ? { ...t, completed: !t.completed } : t
+        )
+      )
 
-		const updatedTasks = tasks.map((task) =>
-			task.id === editingTask.id
-				? { ...task, title: newTaskTitle, priority: taskPriority }
-				: task
-		)
+      // Feedback sonoro e visual
+      if (!task.completed) {
+        const audio = new Audio('/sounds/complete.mp3')
+        audio.play()
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar tarefa:', error)
+    }
+  }
 
-		setTasks(updatedTasks)
-		setEditingTask(null)
-		setNewTaskTitle('')
-		setTaskPriority(1)
-		
-		if (onTaskEdit) {
-			onTaskEdit({ ...editingTask, title: newTaskTitle, priority: taskPriority })
-		}
-	}
+  // Deletar tarefa
+  const deleteTask = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', id)
 
-	const handleCancelEdit = () => {
-		setEditingTask(null)
-		setNewTaskTitle('')
-		setTaskPriority(1)
-	}
+      if (error) throw error
+      setTasks(prev => prev.filter(t => t.id !== id))
+    } catch (error) {
+      console.error('Erro ao deletar tarefa:', error)
+    }
+  }
 
-	const getPriorityColor = (priority: number): string => {
-		switch (priority) {
-			case 3:
-				return 'text-red-600 dark:text-red-400'
-			case 2:
-				return 'text-yellow-600 dark:text-yellow-400'
-			default:
-				return 'text-green-600 dark:text-green-400'
-		}
-	}
+  // Filtrar tarefas visíveis
+  const visibleTasks = tasks
+    .filter(task => showCompleted ? true : !task.completed)
+    .slice(0, MAX_VISIBLE_TASKS)
 
-	return (
-		<div className="rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800 border-2 border-transparent hover:border-primary-300 transition-all duration-300">
-			<h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-				Tarefas
-			</h2>
-			
-			<div className="mt-4">
-				<div className="space-y-4">
-					<div className="flex gap-2">
-						<input
-							type="text"
-							value={newTaskTitle}
-							onChange={(e) => setNewTaskTitle(e.target.value)}
-							onKeyPress={(e) => {
-								if (e.key === 'Enter') {
-									e.preventDefault()
-									editingTask ? handleUpdateTask() : handleAddTask()
-								}
-							}}
-							placeholder={editingTask ? 'Edite a tarefa...' : 'Nova tarefa...'}
-							className="flex-1 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white transition-all duration-300"
-							aria-label={editingTask ? 'Editar tarefa' : 'Nova tarefa'}
-						/>
-						<select
-							value={taskPriority}
-							onChange={(e) => setTaskPriority(Number(e.target.value))}
-							className="rounded-lg border-2 border-gray-300 bg-white shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-							aria-label="Prioridade da tarefa"
-						>
-							<option value={1}>Baixa</option>
-							<option value={2}>Média</option>
-							<option value={3}>Alta</option>
-						</select>
-					</div>
-					<div className="flex gap-2">
-						<button
-							onClick={editingTask ? handleUpdateTask : handleAddTask}
-							className="flex-1 rounded-lg bg-primary-600 px-4 py-2 text-white hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-200 transition-all duration-300"
-							aria-label={editingTask ? 'Salvar edição' : 'Adicionar tarefa'}
-						>
-							{editingTask ? 'Salvar Edição' : 'Adicionar'}
-						</button>
-						{editingTask && (
-							<button
-								onClick={handleCancelEdit}
-								className="flex-1 rounded-lg border-2 border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-all duration-300"
-								aria-label="Cancelar edição"
-							>
-								Cancelar
-							</button>
-						)}
-					</div>
-				</div>
+  return (
+    <div className="space-y-4">
+      <form onSubmit={addTask} className="space-y-3">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newTask}
+            onChange={(e) => setNewTask(e.target.value)}
+            placeholder="Nova tarefa..."
+            className="flex-1 rounded-md border p-2 focus:ring-2 focus:ring-blue-500"
+            maxLength={100}
+          />
+          <button
+            type="submit"
+            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
+          >
+            Adicionar
+          </button>
+        </div>
 
-				<ul className="mt-6 space-y-2">
-					{tasks.map((task) => (
-						<li
-							key={task.id}
-							className="group relative flex items-center gap-2 rounded-lg border-2 border-gray-200 p-4 hover:border-primary-300 dark:border-gray-700 dark:hover:border-primary-500 transition-all duration-300"
-						>
-							<input
-								type="checkbox"
-								checked={task.completed}
-								onChange={() => toggleTask(task.id)}
-								className="h-5 w-5 rounded-md border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-								aria-label={`Marcar tarefa "${task.title}" como ${
-									task.completed ? 'não concluída' : 'concluída'
-								}`}
-							/>
-							<div className="flex-1">
-								<span
-									className={`${
-										task.completed
-											? 'text-gray-500 line-through'
-											: 'text-gray-900 dark:text-white'
-									}`}
-								>
-									{task.title}
-								</span>
-								<span className={`ml-2 text-sm ${getPriorityColor(task.priority)}`}>
-									{task.priority === 3
-										? '(Alta)'
-										: task.priority === 2
-										? '(Média)'
-										: '(Baixa)'}
-								</span>
-							</div>
-							
-							{/* Botões de ação */}
-							<div className="absolute right-2 top-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-								<button
-									onClick={() => handleEditTask(task)}
-									className="rounded-md bg-primary-100 p-2 text-primary-600 hover:bg-primary-200 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-primary-400 dark:hover:bg-gray-600"
-									aria-label="Editar tarefa"
-								>
-									<svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-									</svg>
-								</button>
-								<button
-									onClick={() => handleDeleteTask(task.id)}
-									className="rounded-md bg-red-100 p-2 text-red-600 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-red-400 dark:hover:bg-gray-600"
-									aria-label="Excluir tarefa"
-								>
-									<svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-									</svg>
-								</button>
-							</div>
-						</li>
-					))}
-				</ul>
-			</div>
-		</div>
-	)
+        <div className="flex gap-2">
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
+            className="rounded-md border p-2"
+          >
+            <option value="low">Baixa Prioridade</option>
+            <option value="medium">Média Prioridade</option>
+            <option value="high">Alta Prioridade</option>
+          </select>
+
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as Category)}
+            className="rounded-md border p-2"
+          >
+            {CATEGORIES.map(cat => (
+              <option key={cat} value={cat}>
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </form>
+
+      <div className="flex justify-between items-center">
+        <h3 className="font-semibold">
+          Tarefas ({tasks.filter(t => !t.completed).length} pendentes)
+        </h3>
+        <button
+          onClick={() => setShowCompleted(!showCompleted)}
+          className="text-sm text-blue-500 hover:text-blue-600"
+        >
+          {showCompleted ? 'Ocultar Concluídas' : 'Mostrar Concluídas'}
+        </button>
+      </div>
+
+      <ul className="space-y-2">
+        {visibleTasks.map(task => (
+          <li
+            key={task.id}
+            className={`flex items-center gap-2 p-3 rounded-md transition-all duration-200 ${
+              task.completed 
+                ? 'bg-gray-50 opacity-75' 
+                : task.priority === 'high'
+                ? 'bg-red-50 border-l-4 border-red-500'
+                : task.priority === 'medium'
+                ? 'bg-yellow-50 border-l-4 border-yellow-500'
+                : 'bg-green-50 border-l-4 border-green-500'
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={task.completed}
+              onChange={() => toggleTask(task)}
+              className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <div className="flex-1">
+              <span className={task.completed ? 'line-through text-gray-500' : ''}>
+                {task.title}
+              </span>
+              <span className={`ml-2 px-2 py-1 rounded-full text-xs ${getCategoryColor(task.category as Category)}`}>
+                {task.category}
+              </span>
+            </div>
+            <button
+              onClick={() => deleteTask(task.id)}
+              className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {tasks.length > MAX_VISIBLE_TASKS && (
+        <div className="text-center text-sm text-gray-500">
+          Mostrando {MAX_VISIBLE_TASKS} de {tasks.length} tarefas
+        </div>
+      )}
+
+      {loading && (
+        <div className="text-center text-gray-500">Carregando...</div>
+      )}
+    </div>
+  )
 } 

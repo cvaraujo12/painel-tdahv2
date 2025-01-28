@@ -1,6 +1,15 @@
 # Painel TDAH
 
-Painel pessoal para gerenciamento de tarefas, notas, metas e sessões Pomodoro.
+Painel pessoal para gerenciamento de tarefas, notas, metas e sessões Pomodoro, desenvolvido especialmente para pessoas com TDAH.
+
+## Características
+
+- Interface limpa e minimalista para reduzir distrações
+- Sistema Pomodoro adaptado com notificações visuais e sonoras
+- Gerenciamento de tarefas com prioridades e status
+- Sistema de notas rápidas
+- Definição e acompanhamento de metas
+- Design responsivo e acessível
 
 ## Deploy na Vercel
 
@@ -8,8 +17,9 @@ Painel pessoal para gerenciamento de tarefas, notas, metas e sessões Pomodoro.
 2. Clique em "New Project"
 3. Importe este repositório do GitHub
 4. Configure as variáveis de ambiente:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_URL`
+   - `SUPABASE_ANON_KEY`
+   - `SESSION_SECRET`
 5. Clique em "Deploy"
 
 ## Configuração do Supabase
@@ -46,8 +56,25 @@ Painel pessoal para gerenciamento de tarefas, notas, metas e sessões Pomodoro.
 
 ## Tecnologias
 
-- Next.js 13+ (App Router)
+- Remix.run (Framework web)
 - TypeScript
 - Tailwind CSS
 - Supabase (Auth + Database)
-- Vercel (Hosting) 
+- Vercel (Hosting)
+- React Icons
+- Zustand (Gerenciamento de estado)
+
+## Considerações de Acessibilidade
+
+O projeto foi desenvolvido seguindo diretrizes específicas para TDAH:
+
+- Interface limpa e organizada
+- Feedback visual e sonoro
+- Alto contraste e legibilidade
+- Navegação intuitiva
+- Suporte a atalhos de teclado
+- Mensagens claras e objetivas
+
+## Licença
+
+MIT 
