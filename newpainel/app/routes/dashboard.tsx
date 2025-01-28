@@ -3,7 +3,7 @@ import { Outlet, useLoaderData } from '@remix-run/react'
 import { requireUser } from '~/utils/session.server'
 import { useEffect } from 'react'
 import { useAppStore } from '~/store'
-import { Sidebar } from '~/components/sidebar'
+import Sidebar from '~/components/sidebar'
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request)
